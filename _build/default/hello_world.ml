@@ -10,4 +10,7 @@ let z_o = observe z
 
 let () =
   stabilize ();
+  print_endline (string_of_int (Observer.value_exn z_o));
+  Var.set x 19;
+  stabilize ();
   print_endline (string_of_int (Observer.value_exn z_o))

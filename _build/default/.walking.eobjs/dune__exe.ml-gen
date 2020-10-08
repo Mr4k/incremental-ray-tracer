@@ -1,0 +1,8 @@
+(** @canonical Dune__exe.Hello_world *)
+module Hello_world = Dune__exe__Hello_world
+
+(** @canonical Dune__exe.Sort *)
+module Sort = Dune__exe__Sort
+
+(** @canonical Dune__exe.Walking *)
+module Walking = Dune__exe__Walking
