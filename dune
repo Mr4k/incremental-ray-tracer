@@ -2,4 +2,11 @@
 (executable
  (name walking)
  (libraries core incremental)
- (preprocess (pps ppx_jane)))
+ (preprocess (pps ppx_jane))
+ (modules walking))
+
+(executable
+ (name sort)
+ (libraries core incremental)
+ (preprocess (pps ppx_jane))
+ (modules sort))
