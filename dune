@@ -10,3 +10,9 @@
  (libraries core incremental)
  (preprocess (pps ppx_jane))
  (modules sort))
+
+(executable
+ (name ray_tracer)
+ (libraries core incremental graphics)
+ (preprocess (pps ppx_jane))
+ (modules ray_tracer))
