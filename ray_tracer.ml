@@ -1,10 +1,6 @@
 open Core
 open Graphics
 
-module Inc : Incremental.S = Incremental.Make ()
-
-open Inc
-
 let () = open_graph ""
 
 type vec3 = { x : float; y : float; z : float }

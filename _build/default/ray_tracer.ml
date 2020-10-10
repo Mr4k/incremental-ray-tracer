@@ -1,10 +1,6 @@
 open Core
 open Graphics
 
-module Inc : Incremental.S = Incremental.Make ()
-
-open Inc
-
 let () = open_graph ""
 
 type vec3 = { x : float; y : float; z : float }
@@ -14,14 +10,6 @@ type point = vec3
 type color = vec3
 
 type ray = { direction : vec3; origin : vec3 }
-
-let x = Var.create 13
-
-let y = Var.create 17
-
-let z = map2 (Var.watch x) (Var.watch y) ~f:(fun x y -> x + y)
-
-let z_o = observe z
 
 let aspect_ratio : float = 16.0 /. 9.0
 
