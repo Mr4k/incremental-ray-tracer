@@ -94,12 +94,24 @@ let white = { x = 1.0; y = 1.0; z = 1.0 }
 
 let sky_dark_blue = { x = 0.5; y = 0.7; z = 1.0 }
 
-let sphere = {
+let check_collision_with_world ray world t_min t_max = let (_, _, record) = List.fold world ~init:(t_min, t_max, None) ~f:(fun acc sphere ->
+  let (t_min, t_max, prev) = acc in
+  match (check_collision_with_sphere ray sphere t_min t_max) with
+    | None -> (t_min, t_max, prev)
+    | Some(hit_record) -> (t_min, hit_record.t, Some(hit_record))) in
+  record
+
+
+let world = [{
   center = {x = 0.0; y = 0.0; z = -.1.0};
   radius = 0.5
-}
+}; {
+  center = {x = 0.0; y = -100.5; z = -.1.0};
+  radius = 100.0
+}]
+
 let trace r =
-  match (check_collision_with_sphere r sphere 0.0 10000.0) with
+  match (check_collision_with_world r world 0.0 10000.0) with
   | None ->
     let n = norm r.direction in
     let t = 0.5 *. (n.y +. 1.0) in
