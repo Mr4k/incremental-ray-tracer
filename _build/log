@@ -1,10 +1,10 @@
-# dune exec ./ray_tracer.exe
+# dune build @fmt --auto-promote
 # OCAMLPARAM: unset
 # Workspace root: /Users/peterstefek/Projects/incremental-computation
-$ /usr/bin/getconf _NPROCESSORS_ONLN > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/dune00c97f.output 2> /dev/null
+$ /usr/bin/getconf _NPROCESSORS_ONLN > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/dune541cda.output 2> /dev/null
 # Auto-detected concurrency: 4
 # disable binary cache
-$ /usr/local/bin/ocamlc.opt -config > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/dune61783a.output
+$ /usr/local/bin/ocamlc.opt -config > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/dune77ed1f.output
 # Dune context:
 #  { name = "default"
 #  ; kind = "default"
@@ -107,4 +107,4 @@ $ /usr/local/bin/ocamlc.opt -config > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m00
 #      ; windows_unicode = false
 #      }
 #  }
-# Workspace root: /Users/peterstefek/Projects/incremental-computation
+$ (cd _build/default && /Users/peterstefek/.opam/default/bin/ocamlformat --impl ray_tracer.ml) > _build/default/.formatted/ray_tracer.ml
