@@ -110,14 +110,28 @@ let world =
     { center = { x = 0.0; y = -100.5; z = -1.0 }; radius = 100.0 };
   ]
 
-let trace r =
-  match check_collision_with_world r world 0.0 10000.0 with
-  | None ->
-      let n = norm r.direction in
-      let t = 0.5 *. (n.y +. 1.0) in
-      add (scale white (1.0 -. t)) (scale sky_dark_blue t)
-  | Some hit_record ->
-      scale (add hit_record.face_normal { x = 1.0; y = 1.0; z = 1.0 }) 0.5
+let () = Random.init 0
+
+(* this function contains a gross hack to take a fake argument which by passes ocaml's apparent restriction on recursive no argument functions*)
+let rec random_point_in_unit_sphere _ =
+  let randVec =
+    { x = (Random.float 2.0) -. 1.0; y = (Random.float 2.0) -. 1.0; z = (Random.float 2.0) -. 1.0; }
+  in
+  if Float.(dot randVec randVec > 0.0) then randVec
+  else random_point_in_unit_sphere 0.0
+
+let rec trace r n =
+  if n <= 0 then { x = 0.0; y = 0.0; z = 0.0 }
+  else
+    match check_collision_with_world r world 0.001 10000.0 with
+    | None ->
+        let n = norm r.direction in
+        let t = 0.5 *. (n.y +. 1.0) in
+        add (scale white (1.0 -. t)) (scale sky_dark_blue t)
+    | Some hit_record ->
+        (*scale (add hit_record.face_normal { x = 1.0; y = 1.0; z = 1.0 }) 0.5*)
+        let direction = add (random_point_in_unit_sphere 0.0) hit_record.face_normal in
+        scale (trace { origin = hit_record.position; direction } (n - 1)) 0.5
 
 let screen_coords =
   Array.init (screen_width * screen_height) ~f:(fun i ->
@@ -129,12 +143,12 @@ let screen_coords =
 
 let samples_per_pixel = 100
 
+let max_depth = 50
+
 (* low hanging fruit replace samples with a generator*)
 let samples = Array.init samples_per_pixel ~f:(fun i -> i)
 
 let fsamples_per_pixel = float_of_int samples_per_pixel
-
-let () = Random.init 0
 
 let resulting_colors =
   Array.map screen_coords ~f:(fun screen_coord ->
@@ -153,14 +167,15 @@ let resulting_colors =
                         (add
                            (scale horizontal (x +. jitter_x))
                            (scale vertical (y +. jitter_y)));
-                  })
+                  }
+                  max_depth)
                color))
         (1.0 /. fsamples_per_pixel))
 
 let pack_color_to_int color =
-  let r = int_of_float (Float.min (color.x *. 255.0) 255.0) in
-  let g = int_of_float (Float.min (color.y *. 255.0) 255.0) in
-  let b = int_of_float (color.z *. 255.0) in
+  let r = min (int_of_float ((Float.sqrt color.x) *. 256.0)) 255 in
+  let g = min (int_of_float ((Float.sqrt color.y) *. 256.0)) 255 in
+  let b = min (int_of_float ((Float.sqrt color.z) *. 256.0)) 255 in
   b lor ((g lor (r lsl 8)) lsl 8)
 
 let () =
