@@ -34,11 +34,13 @@ let horizontal = { x = viewpoint_width; y = 0.0; z = 0.0 }
 
 let vertical = { x = 0.0; y = viewpoint_height; z = 0.0 }
 
-let dot a b = Float.sqrt ((a.x *. b.x) +. (a.y *. b.y) +. (a.z *. b.z))
+let dot a b = (a.x *. b.x) +. (a.y *. b.y) +. (a.z *. b.z)
 
 let scale a b = { x = a.x *. b; y = a.y *. b; z = a.z *. b }
 
 let add a b = { x = a.x +. b.x; y = a.y +. b.y; z = a.z +. b.z }
+
+let sub a b = { x = a.x -. b.x; y = a.y -. b.y; z = a.z -. b.z }
 
 let len a = dot a a
 
@@ -46,14 +48,64 @@ let norm a =
   let l = len a in
   { x = a.x /. l; y = a.y /. l; z = a.z /. l }
 
+type sphere = { center : vec3; radius : float }
+
+type hit_record = { t : float; position : vec3; face_normal : vec3 }
+
+let check_collision_with_sphere ray sphere t_min t_max =
+  let oc = sub ray.origin sphere.center in
+  let a = dot ray.direction ray.direction in
+  let half_b = dot oc ray.direction in
+  let c = dot oc oc -. (sphere.radius *. sphere.radius) in
+  let discriminant = (half_b *. half_b) -. (a *. c) in
+  if Float.(discriminant >. 0.0) then (
+    let root = sqrt discriminant in
+    let solution_1 = (-.half_b -. root) /. a in
+    let solution_2 = (-.half_b -. root) /. a in
+    let solution_1_valid = Float.(solution_1 < t_max && solution_1 > t_min) in
+    let solution_2_valid = Float.(solution_2 < t_max && solution_2 > t_min) in
+    let temp =
+      match (solution_1_valid, solution_2_valid) with
+      | true, true -> Some solution_1
+      | true, false -> Some solution_1
+      | false, true -> Some solution_2
+      | false, false -> None
+    in
+
+    match temp with
+    | Some temp ->
+        let hit_pos = add (scale ray.direction temp) ray.origin in
+        let outward_normal =
+          scale (sub hit_pos sphere.center) (1.0 /. sphere.radius)
+        in
+        let face_dir =
+          if Float.(dot ray.direction outward_normal < 0.0) then 1.0 else -1.0
+        in
+        Some
+          {
+            t = temp;
+            position = hit_pos;
+            face_normal = scale outward_normal face_dir;
+          }
+    | None -> None)
+  else None
+
 let white = { x = 1.0; y = 1.0; z = 1.0 }
 
 let sky_dark_blue = { x = 0.5; y = 0.7; z = 1.0 }
 
+let sphere = {
+  center = {x = 0.0; y = 0.0; z = -.1.0};
+  radius = 0.5
+}
 let trace r =
-  let n = norm r.direction in
-  let t = 0.5 *. (n.y +. 1.0) in
-  add (scale white (1.0 -. t)) (scale sky_dark_blue t)
+  match (check_collision_with_sphere r sphere 0.0 10000.0) with
+  | None ->
+    let n = norm r.direction in
+    let t = 0.5 *. (n.y +. 1.0) in
+    add (scale white (1.0 -. t)) (scale sky_dark_blue t)
+  | Some(hit_record) ->
+    scale (add hit_record.face_normal {x=1.0;y=1.0;z=1.0}) 0.5
 
 let screen_coords =
   Array.init (screen_width * screen_height) ~f:(fun i ->
