@@ -121,18 +121,30 @@ let trace r =
 
 let screen_coords =
   Array.init (screen_width * screen_height) ~f:(fun i ->
-      ( float_of_int (i % screen_width) /. float_of_int screen_width,
-        float_of_int (i / screen_width) /. float_of_int screen_height ))
+      let x = float_of_int (i % screen_width) /. float_of_int screen_width in
+      let y = 1.0 -. (float_of_int (i / screen_width) /. float_of_int screen_height) in
+      ( x, y)
+    )
 
+
+let samples_per_pixel = 100
+(* low hanging fruit replace samples with a generator*)
+let samples = Array.init samples_per_pixel ~f:(fun i -> i)
+let fsamples_per_pixel = float_of_int(samples_per_pixel)
+let () = Random.init 0
 let resulting_colors =
   Array.map screen_coords ~f:(fun screen_coord ->
       let x, y = screen_coord in
-      trace
-        {
-          origin = { x = 0.0; y = 0.0; z = 0.0 };
-          direction =
-            add lower_left_corner (add (scale horizontal x) (scale vertical y));
-        })
+      scale (Array.fold samples ~init:{x = 0.0; y=0.0; z=0.0;} ~f:(fun color _ ->
+        let jitter_x = Random.float (1.0 /. float_of_int screen_width) in
+        let jitter_y = Random.float (1.0 /. float_of_int screen_height) in
+        add (trace
+          {
+            origin = { x = 0.0; y = 0.0; z = 0.0 };
+            direction =
+              add lower_left_corner (add (scale horizontal (x +. jitter_x)) (scale vertical (y +. jitter_y)));
+          }) color)) (1.0 /. fsamples_per_pixel)
+    )
 
 let pack_color_to_int color =
   let r = int_of_float (Float.min (color.x *. 255.0) 255.0) in

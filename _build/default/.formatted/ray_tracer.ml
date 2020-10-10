@@ -34,7 +34,7 @@ let horizontal = { x = viewpoint_width; y = 0.0; z = 0.0 }
 
 let vertical = { x = 0.0; y = viewpoint_height; z = 0.0 }
 
-let dot a b = Float.sqrt ((a.x *. b.x) +. (a.y *. b.y) +. (a.z *. b.z))
+let dot a b = (a.x *. b.x) +. (a.y *. b.y) +. (a.z *. b.z)
 
 let scale a b = { x = a.x *. b; y = a.y *. b; z = a.z *. b }
 
@@ -63,7 +63,7 @@ let check_collision_with_sphere ray sphere t_min t_max =
     let solution_1 = (-.half_b -. root) /. a in
     let solution_2 = (-.half_b -. root) /. a in
     let solution_1_valid = Float.(solution_1 < t_max && solution_1 > t_min) in
-    let solution_2_valid = Float.(solution_1 < t_max && solution_1 > t_min) in
+    let solution_2_valid = Float.(solution_2 < t_max && solution_2 > t_min) in
     let temp =
       match (solution_1_valid, solution_2_valid) with
       | true, true -> Some solution_1
@@ -94,25 +94,68 @@ let white = { x = 1.0; y = 1.0; z = 1.0 }
 
 let sky_dark_blue = { x = 0.5; y = 0.7; z = 1.0 }
 
+let check_collision_with_world ray world t_min t_max =
+  let _, _, record =
+    List.fold world ~init:(t_min, t_max, None) ~f:(fun acc sphere ->
+        let t_min, t_max, prev = acc in
+        match check_collision_with_sphere ray sphere t_min t_max with
+        | None -> (t_min, t_max, prev)
+        | Some hit_record -> (t_min, hit_record.t, Some hit_record))
+  in
+  record
+
+let world =
+  [
+    { center = { x = 0.0; y = 0.0; z = -1.0 }; radius = 0.5 };
+    { center = { x = 0.0; y = -100.5; z = -1.0 }; radius = 100.0 };
+  ]
+
 let trace r =
-  let n = norm r.direction in
-  let t = 0.5 *. (n.y +. 1.0) in
-  add (scale white (1.0 -. t)) (scale sky_dark_blue t)
+  match check_collision_with_world r world 0.0 10000.0 with
+  | None ->
+      let n = norm r.direction in
+      let t = 0.5 *. (n.y +. 1.0) in
+      add (scale white (1.0 -. t)) (scale sky_dark_blue t)
+  | Some hit_record ->
+      scale (add hit_record.face_normal { x = 1.0; y = 1.0; z = 1.0 }) 0.5
 
 let screen_coords =
   Array.init (screen_width * screen_height) ~f:(fun i ->
-      ( float_of_int (i % screen_width) /. float_of_int screen_width,
-        float_of_int (i / screen_width) /. float_of_int screen_height ))
+      let x = float_of_int (i % screen_width) /. float_of_int screen_width in
+      let y =
+        1.0 -. (float_of_int (i / screen_width) /. float_of_int screen_height)
+      in
+      (x, y))
+
+let samples_per_pixel = 100
+
+(* low hanging fruit replace samples with a generator*)
+let samples = Array.init samples_per_pixel ~f:(fun i -> i)
+
+let fsamples_per_pixel = float_of_int samples_per_pixel
+
+let () = Random.init 0
 
 let resulting_colors =
   Array.map screen_coords ~f:(fun screen_coord ->
       let x, y = screen_coord in
-      trace
-        {
-          origin = { x = 0.0; y = 0.0; z = 0.0 };
-          direction =
-            add lower_left_corner (add (scale horizontal x) (scale vertical y));
-        })
+      scale
+        (Array.fold samples ~init:{ x = 0.0; y = 0.0; z = 0.0 }
+           ~f:(fun color _ ->
+             let jitter_x = Random.float (1.0 /. float_of_int screen_width) in
+             let jitter_y = Random.float (1.0 /. float_of_int screen_height) in
+             add
+               (trace
+                  {
+                    origin = { x = 0.0; y = 0.0; z = 0.0 };
+                    direction =
+                      add lower_left_corner
+                        (add
+                           (scale horizontal (x +. jitter_x))
+                           (scale vertical (y +. jitter_y)));
+                  })
+               color))
+        (1.0 /. fsamples_per_pixel))
 
 let pack_color_to_int color =
   let r = int_of_float (Float.min (color.x *. 255.0) 255.0) in

@@ -1,10 +1,10 @@
-# dune exec ./ray_tracer.exe
+# dune build @fmt --auto-promote
 # OCAMLPARAM: unset
 # Workspace root: /Users/peterstefek/Projects/incremental-computation
-$ /usr/bin/getconf _NPROCESSORS_ONLN > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/dune24f4ea.output 2> /dev/null
+$ /usr/bin/getconf _NPROCESSORS_ONLN > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/duneca5fc1.output 2> /dev/null
 # Auto-detected concurrency: 4
 # disable binary cache
-$ /usr/local/bin/ocamlc.opt -config > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/dune9d1389.output
+$ /usr/local/bin/ocamlc.opt -config > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/dune75c0b0.output
 # Dune context:
 #  { name = "default"
 #  ; kind = "default"
@@ -107,4 +107,130 @@ $ /usr/local/bin/ocamlc.opt -config > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m00
 #      ; windows_unicode = false
 #      }
 #  }
-# Workspace root: /Users/peterstefek/Projects/incremental-computation
+$ (cd _build/default && /Users/peterstefek/.opam/default/bin/ocamlformat --impl ray_tracer.ml) > _build/default/.formatted/ray_tracer.ml
+$ (cd _build/default && /usr/local/bin/git diff --no-index --color=always -u ray_tracer.ml .formatted/ray_tracer.ml)
+> diff --git a/ray_tracer.ml b/.formatted/ray_tracer.ml
+> index a52a5db..1d4a6c0 100644
+> --- a/ray_tracer.ml
+> +++ b/.formatted/ray_tracer.ml
+> @@ -58,7 +58,7 @@ let check_collision_with_sphere ray sphere t_min t_max =
+>    let half_b = dot oc ray.direction in
+>    let c = dot oc oc -. (sphere.radius *. sphere.radius) in
+>    let discriminant = (half_b *. half_b) -. (a *. c) in
+> -  if Float.(discriminant >. 0.0) then (
+> +  if Float.(discriminant >. 0.0) then
+>      let root = sqrt discriminant in
+>      let solution_1 = (-.half_b -. root) /. a in
+>      let solution_2 = (-.half_b -. root) /. a in
+> @@ -87,64 +87,75 @@ let check_collision_with_sphere ray sphere t_min t_max =
+>              position = hit_pos;
+>              face_normal = scale outward_normal face_dir;
+>            }
+> -    | None -> None)
+> +    | None -> None
+>    else None
+>  
+>  let white = { x = 1.0; y = 1.0; z = 1.0 }
+>  
+>  let sky_dark_blue = { x = 0.5; y = 0.7; z = 1.0 }
+>  
+> -let check_collision_with_world ray world t_min t_max = let (_, _, record) = List.fold world ~init:(t_min, t_max, None) ~f:(fun acc sphere ->
+> -  let (t_min, t_max, prev) = acc in
+> -  match (check_collision_with_sphere ray sphere t_min t_max) with
+> -    | None -> (t_min, t_max, prev)
+> -    | Some(hit_record) -> (t_min, hit_record.t, Some(hit_record))) in
+> +let check_collision_with_world ray world t_min t_max =
+> +  let _, _, record =
+> +    List.fold world ~init:(t_min, t_max, None) ~f:(fun acc sphere ->
+> +        let t_min, t_max, prev = acc in
+> +        match check_collision_with_sphere ray sphere t_min t_max with
+> +        | None -> (t_min, t_max, prev)
+> +        | Some hit_record -> (t_min, hit_record.t, Some hit_record))
+> +  in
+>    record
+>  
+> -
+> -let world = [{
+> -  center = {x = 0.0; y = 0.0; z = -.1.0};
+> -  radius = 0.5
+> -}; {
+> -  center = {x = 0.0; y = -100.5; z = -.1.0};
+> -  radius = 100.0
+> -}]
+> +let world =
+> +  [
+> +    { center = { x = 0.0; y = 0.0; z = -1.0 }; radius = 0.5 };
+> +    { center = { x = 0.0; y = -100.5; z = -1.0 }; radius = 100.0 };
+> +  ]
+>  
+>  let trace r =
+> -  match (check_collision_with_world r world 0.0 10000.0) with
+> +  match check_collision_with_world r world 0.0 10000.0 with
+>    | None ->
+> -    let n = norm r.direction in
+> -    let t = 0.5 *. (n.y +. 1.0) in
+> -    add (scale white (1.0 -. t)) (scale sky_dark_blue t)
+> -  | Some(hit_record) ->
+> -    scale (add hit_record.face_normal {x=1.0;y=1.0;z=1.0}) 0.5
+> +      let n = norm r.direction in
+> +      let t = 0.5 *. (n.y +. 1.0) in
+> +      add (scale white (1.0 -. t)) (scale sky_dark_blue t)
+> +  | Some hit_record ->
+> +      scale (add hit_record.face_normal { x = 1.0; y = 1.0; z = 1.0 }) 0.5
+>  
+>  let screen_coords =
+>    Array.init (screen_width * screen_height) ~f:(fun i ->
+>        let x = float_of_int (i % screen_width) /. float_of_int screen_width in
+> -      let y = 1.0 -. (float_of_int (i / screen_width) /. float_of_int screen_height) in
+> -      ( x, y)
+> -    )
+> -
+> +      let y =
+> +        1.0 -. (float_of_int (i / screen_width) /. float_of_int screen_height)
+> +      in
+> +      (x, y))
+>  
+>  let samples_per_pixel = 100
+> +
+>  (* low hanging fruit replace samples with a generator*)
+>  let samples = Array.init samples_per_pixel ~f:(fun i -> i)
+> -let fsamples_per_pixel = float_of_int(samples_per_pixel)
+> +
+> +let fsamples_per_pixel = float_of_int samples_per_pixel
+> +
+>  let () = Random.init 0
+> +
+>  let resulting_colors =
+>    Array.map screen_coords ~f:(fun screen_coord ->
+>        let x, y = screen_coord in
+> -      scale (Array.fold samples ~init:{x = 0.0; y=0.0; z=0.0;} ~f:(fun color _ ->
+> -        let jitter_x = Random.float (1.0 /. float_of_int screen_width) in
+> -        let jitter_y = Random.float (1.0 /. float_of_int screen_height) in
+> -        add (trace
+> -          {
+> -            origin = { x = 0.0; y = 0.0; z = 0.0 };
+> -            direction =
+> -              add lower_left_corner (add (scale horizontal (x +. jitter_x)) (scale vertical (y +. jitter_y)));
+> -          }) color)) (1.0 /. fsamples_per_pixel)
+> -    )
+> +      scale
+> +        (Array.fold samples ~init:{ x = 0.0; y = 0.0; z = 0.0 }
+> +           ~f:(fun color _ ->
+> +             let jitter_x = Random.float (1.0 /. float_of_int screen_width) in
+> +             let jitter_y = Random.float (1.0 /. float_of_int screen_height) in
+> +             add
+> +               (trace
+> +                  {
+> +                    origin = { x = 0.0; y = 0.0; z = 0.0 };
+> +                    direction =
+> +                      add lower_left_corner
+> +                        (add
+> +                           (scale horizontal (x +. jitter_x))
+> +                           (scale vertical (y +. jitter_y)));
+> +                  })
+> +               color))
+> +        (1.0 /. fsamples_per_pixel))
+>  
+>  let pack_color_to_int color =
+>    let r = int_of_float (Float.min (color.x *. 255.0) 255.0) in
+[1]
