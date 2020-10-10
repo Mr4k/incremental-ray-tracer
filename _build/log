@@ -1,10 +1,10 @@
-# dune build @fmt --auto-promote
+# dune exec ./ray_tracer.exe
 # OCAMLPARAM: unset
 # Workspace root: /Users/peterstefek/Projects/incremental-computation
-$ /usr/bin/getconf _NPROCESSORS_ONLN > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/dune620099.output 2> /dev/null
+$ /usr/bin/getconf _NPROCESSORS_ONLN > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/dune86f3f0.output 2> /dev/null
 # Auto-detected concurrency: 4
 # disable binary cache
-$ /usr/local/bin/ocamlc.opt -config > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/dunea70a64.output
+$ /usr/local/bin/ocamlc.opt -config > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/dune181096.output
 # Dune context:
 #  { name = "default"
 #  ; kind = "default"
@@ -107,47 +107,4 @@ $ /usr/local/bin/ocamlc.opt -config > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m00
 #      ; windows_unicode = false
 #      }
 #  }
-$ (cd _build/default && /Users/peterstefek/.opam/default/bin/ocamlformat --impl ray_tracer.ml) > _build/default/.formatted/ray_tracer.ml
-$ (cd _build/default && /usr/local/bin/git diff --no-index --color=always -u ray_tracer.ml .formatted/ray_tracer.ml)
-> diff --git a/ray_tracer.ml b/.formatted/ray_tracer.ml
-> index 9d7dcce..66a18b7 100644
-> --- a/ray_tracer.ml
-> +++ b/.formatted/ray_tracer.ml
-> @@ -115,7 +115,11 @@ let () = Random.init 0
->  (* this function contains a gross hack to take a fake argument which by passes ocaml's apparent restriction on recursive no argument functions*)
->  let rec random_point_in_unit_sphere _ =
->    let randVec =
-> -    { x = (Random.float 2.0) -. 1.0; y = (Random.float 2.0) -. 1.0; z = (Random.float 2.0) -. 1.0; }
-> +    {
-> +      x = Random.float 2.0 -. 1.0;
-> +      y = Random.float 2.0 -. 1.0;
-> +      z = Random.float 2.0 -. 1.0;
-> +    }
->    in
->    if Float.(dot randVec randVec > 0.0) then randVec
->    else random_point_in_unit_sphere 0.0
-> @@ -130,7 +134,9 @@ let rec trace r n =
->          add (scale white (1.0 -. t)) (scale sky_dark_blue t)
->      | Some hit_record ->
->          (*scale (add hit_record.face_normal { x = 1.0; y = 1.0; z = 1.0 }) 0.5*)
-> -        let direction = add (random_point_in_unit_sphere 0.0) hit_record.face_normal in
-> +        let direction =
-> +          add (random_point_in_unit_sphere 0.0) hit_record.face_normal
-> +        in
->          scale (trace { origin = hit_record.position; direction } (n - 1)) 0.5
->  
->  let screen_coords =
-> @@ -173,9 +179,9 @@ let resulting_colors =
->          (1.0 /. fsamples_per_pixel))
->  
->  let pack_color_to_int color =
-> -  let r = min (int_of_float ((Float.sqrt color.x) *. 256.0)) 255 in
-> -  let g = min (int_of_float ((Float.sqrt color.y) *. 256.0)) 255 in
-> -  let b = min (int_of_float ((Float.sqrt color.z) *. 256.0)) 255 in
-> +  let r = min (int_of_float (Float.sqrt color.x *. 256.0)) 255 in
-> +  let g = min (int_of_float (Float.sqrt color.y *. 256.0)) 255 in
-> +  let b = min (int_of_float (Float.sqrt color.z *. 256.0)) 255 in
->    b lor ((g lor (r lsl 8)) lsl 8)
->  
->  let () =
-[1]
+# Workspace root: /Users/peterstefek/Projects/incremental-computation

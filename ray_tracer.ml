@@ -110,19 +110,19 @@ let world =
     { center = { x = 0.0; y = -100.5; z = -1.0 }; radius = 100.0 };
   ]
 
-let () = Random.init 0
+let () = 
+  Random.init 0
 
 (* this function contains a gross hack to take a fake argument which by passes ocaml's apparent restriction on recursive no argument functions*)
-let rec random_point_in_unit_sphere _ =
-  let randVec =
-    {
-      x = Random.float 2.0 -. 1.0;
-      y = Random.float 2.0 -. 1.0;
-      z = Random.float 2.0 -. 1.0;
-    }
-  in
-  if Float.(dot randVec randVec > 0.0) then randVec
-  else random_point_in_unit_sphere 0.0
+let random_unit_vector () =
+  let a = Random.float (2.0 *. Float.pi) in
+  let z = (Random.float 2.0) -. 1.0 in
+  let r = Float.sqrt (1.0 -. z *. z) in
+  {
+    x = r *. Float.cos(a);
+    y = r *. Float.sin(a);
+    z = z;
+  }
 
 let rec trace r n =
   if n <= 0 then { x = 0.0; y = 0.0; z = 0.0 }
@@ -135,7 +135,7 @@ let rec trace r n =
     | Some hit_record ->
         (*scale (add hit_record.face_normal { x = 1.0; y = 1.0; z = 1.0 }) 0.5*)
         let direction =
-          add (random_point_in_unit_sphere 0.0) hit_record.face_normal
+          add (random_unit_vector ()) hit_record.face_normal
         in
         scale (trace { origin = hit_record.position; direction } (n - 1)) 0.5
 
