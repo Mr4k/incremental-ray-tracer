@@ -115,7 +115,11 @@ let () = Random.init 0
 (* this function contains a gross hack to take a fake argument which by passes ocaml's apparent restriction on recursive no argument functions*)
 let rec random_point_in_unit_sphere _ =
   let randVec =
-    { x = (Random.float 2.0) -. 1.0; y = (Random.float 2.0) -. 1.0; z = (Random.float 2.0) -. 1.0; }
+    {
+      x = Random.float 2.0 -. 1.0;
+      y = Random.float 2.0 -. 1.0;
+      z = Random.float 2.0 -. 1.0;
+    }
   in
   if Float.(dot randVec randVec > 0.0) then randVec
   else random_point_in_unit_sphere 0.0
@@ -130,7 +134,9 @@ let rec trace r n =
         add (scale white (1.0 -. t)) (scale sky_dark_blue t)
     | Some hit_record ->
         (*scale (add hit_record.face_normal { x = 1.0; y = 1.0; z = 1.0 }) 0.5*)
-        let direction = add (random_point_in_unit_sphere 0.0) hit_record.face_normal in
+        let direction =
+          add (random_point_in_unit_sphere 0.0) hit_record.face_normal
+        in
         scale (trace { origin = hit_record.position; direction } (n - 1)) 0.5
 
 let screen_coords =
@@ -173,9 +179,9 @@ let resulting_colors =
         (1.0 /. fsamples_per_pixel))
 
 let pack_color_to_int color =
-  let r = min (int_of_float ((Float.sqrt color.x) *. 256.0)) 255 in
-  let g = min (int_of_float ((Float.sqrt color.y) *. 256.0)) 255 in
-  let b = min (int_of_float ((Float.sqrt color.z) *. 256.0)) 255 in
+  let r = min (int_of_float (Float.sqrt color.x *. 256.0)) 255 in
+  let g = min (int_of_float (Float.sqrt color.y *. 256.0)) 255 in
+  let b = min (int_of_float (Float.sqrt color.z *. 256.0)) 255 in
   b lor ((g lor (r lsl 8)) lsl 8)
 
 let () =
