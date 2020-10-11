@@ -42,7 +42,11 @@ let add a b = { x = a.x +. b.x; y = a.y +. b.y; z = a.z +. b.z }
 
 let sub a b = { x = a.x -. b.x; y = a.y -. b.y; z = a.z -. b.z }
 
+let hammard a b = { x = a.x *. b.x; y = a.y *. b.y; z = a.z *. b.z }
+
 let len a = dot a a
+
+let reflect v n = sub v (scale n (2.0 *. dot v n))
 
 let norm a =
   let l = len a in
@@ -95,51 +99,78 @@ let white = { x = 1.0; y = 1.0; z = 1.0 }
 let sky_dark_blue = { x = 0.5; y = 0.7; z = 1.0 }
 
 let check_collision_with_world ray world t_min t_max =
-  let _, _, record =
-    List.fold world ~init:(t_min, t_max, None) ~f:(fun acc sphere ->
-        let t_min, t_max, prev = acc in
+  let _, _, record, idx =
+    List.foldi world ~init:(t_min, t_max, None, -1) ~f:(fun i acc sphere ->
+        let t_min, t_max, prev, prev_i = acc in
         match check_collision_with_sphere ray sphere t_min t_max with
-        | None -> (t_min, t_max, prev)
-        | Some hit_record -> (t_min, hit_record.t, Some hit_record))
+        | None -> (t_min, t_max, prev, prev_i)
+        | Some hit_record -> (t_min, hit_record.t, Some hit_record, i))
   in
-  record
+  (record, idx)
 
 let world =
   [
-    { center = { x = 0.0; y = 0.0; z = -1.0 }; radius = 0.5 };
     { center = { x = 0.0; y = -100.5; z = -1.0 }; radius = 100.0 };
+    { center = { x = 0.0; y = 0.0; z = -1.0 }; radius = 0.5 };
+    { center = { x = -1.0; y = 0.0; z = -1.0 }; radius = 0.5 };
+    { center = { x = 1.0; y = 0.0; z = -1.0 }; radius = 0.5 };
   ]
 
-let () = 
-  Random.init 0
+type lambertian = { color : vec3 }
+
+type metal = { albedo : vec3; fuzziness : float }
+
+type material = L' of lambertian | M' of metal
+
+let _materials_list : material list =
+  [
+    L' { color = { x = 0.8; y = 0.8; z = 0.0 } };
+    L' { color = { x = 0.7; y = 0.3; z = 0.3 } };
+    M' { albedo = { x = 0.8; y = 0.8; z = 0.8 }; fuzziness = 0.3 };
+    M' { albedo = { x = 0.8; y = 0.6; z = 0.2 }; fuzziness = 1.0 };
+  ]
+
+let materials = Array.of_list _materials_list
+
+let () = Random.init 0
 
 (* this function contains a gross hack to take a fake argument which by passes ocaml's apparent restriction on recursive no argument functions*)
 let random_unit_vector () =
   let a = Random.float (2.0 *. Float.pi) in
-  let z = (Random.float 2.0) -. 1.0 in
-  let r = Float.sqrt (1.0 -. z *. z) in
-  {
-    x = r *. Float.cos(a);
-    y = r *. Float.sin(a);
-    z = z;
-  }
+  let z = Random.float 2.0 -. 1.0 in
+  let r = Float.sqrt (1.0 -. (z *. z)) in
+  { x = r *. Float.cos a; y = r *. Float.sin a; z }
 
 let rec trace r n =
   if n <= 0 then { x = 0.0; y = 0.0; z = 0.0 }
   else
     match check_collision_with_world r world 0.001 10000.0 with
-    | None ->
+    | None, _ ->
         let n = norm r.direction in
         let t = 0.5 *. (n.y +. 1.0) in
         add (scale white (1.0 -. t)) (scale sky_dark_blue t)
-    | Some hit_record ->
+    | Some hit_record, material_index -> (
         (*scale (add hit_record.face_normal { x = 1.0; y = 1.0; z = 1.0 }) 0.5*)
-        (*let v = random_unit_vector in
-        printf "hello world\n";*)
-        let direction =
-          add (random_unit_vector ()) hit_record.face_normal
-        in
-        scale (trace { origin = hit_record.position; direction } (n - 1)) 0.5
+        let material = materials.(material_index) in
+        match material with
+        | L' lambertian ->
+            let direction =
+              add (random_unit_vector ()) hit_record.face_normal
+            in
+            hammard
+              (trace { origin = hit_record.position; direction } (n - 1))
+              lambertian.color
+        | M' metal ->
+            let direction =
+              add
+                (scale (random_unit_vector ()) metal.fuzziness)
+                (reflect r.direction hit_record.face_normal)
+            in
+            if Float.(dot direction hit_record.face_normal > 0.0) then
+              hammard
+                (trace { origin = hit_record.position; direction } (n - 1))
+                metal.albedo
+            else { x = 0.0; y = 0.0; z = 0.0 } )
 
 let screen_coords =
   Array.init (screen_width * screen_height) ~f:(fun i ->
