@@ -11,29 +11,6 @@ type color = vec3
 
 type ray = { direction : vec3; origin : vec3 }
 
-let aspect_ratio : float = 16.0 /. 9.0
-
-let viewpoint_height = 2.0
-
-let viewpoint_width = viewpoint_height *. aspect_ratio
-
-let focal_length = 1.0
-
-let screen_width = 480
-
-let screen_height = 270
-
-let lower_left_corner =
-  {
-    x = -.viewpoint_width /. 2.0;
-    y = -.viewpoint_height /. 2.0;
-    z = -.focal_length;
-  }
-
-let horizontal = { x = viewpoint_width; y = 0.0; z = 0.0 }
-
-let vertical = { x = 0.0; y = viewpoint_height; z = 0.0 }
-
 let dot a b = (a.x *. b.x) +. (a.y *. b.y) +. (a.z *. b.z)
 
 let scale a b = { x = a.x *. b; y = a.y *. b; z = a.z *. b }
@@ -44,7 +21,14 @@ let sub a b = { x = a.x -. b.x; y = a.y -. b.y; z = a.z -. b.z }
 
 let hammard a b = { x = a.x *. b.x; y = a.y *. b.y; z = a.z *. b.z }
 
-let len a = dot a a
+let len a = Float.sqrt(dot a a)
+
+let cross a b =
+  {
+    x = (a.y *. b.z) -. (a.z *. b.y);
+    y = (a.z *. b.x) -. (a.x *. b.z);
+    z = (a.x *. b.y) -. (a.y *. b.x);
+  }
 
 let reflect v n = sub v (scale n (2.0 *. dot v n))
 
@@ -126,8 +110,8 @@ let _materials_list : material list =
   [
     L' { color = { x = 0.8; y = 0.8; z = 0.0 } };
     L' { color = { x = 0.7; y = 0.3; z = 0.3 } };
-    M' { albedo = { x = 0.8; y = 0.8; z = 0.8 }; fuzziness = 0.3 };
-    M' { albedo = { x = 0.8; y = 0.6; z = 0.2 }; fuzziness = 1.0 };
+    M' { albedo = { x = 0.8; y = 0.8; z = 0.8 }; fuzziness = 0.0 };
+    M' { albedo = { x = 0.8; y = 0.6; z = 0.2 }; fuzziness = 0.5 };
   ]
 
 let materials = Array.of_list _materials_list
@@ -172,6 +156,60 @@ let rec trace r n =
                 metal.albedo
             else { x = 0.0; y = 0.0; z = 0.0 } )
 
+let aspect_ratio : float = 16.0 /. 9.0
+
+let screen_width = 480
+
+let screen_height = 270
+
+type camera = {
+  origin : vec3;
+  lower_left_corner : vec3;
+  horizontal : vec3;
+  vertical : vec3;
+}
+
+let make_camera look_from look_at up vfov aspect_ratio =
+  printf "ever called?";
+  
+  let theta = vfov /. 180.0 *. Float.pi in
+  let h = Float.tan (theta /. 2.0) in
+  let viewpoint_height = 2.0 *. h in
+  let viewpoint_width = viewpoint_height *. aspect_ratio in
+
+  let w = norm (sub look_from look_at) in
+  let u = norm (cross up w) in
+  let v = cross w u in
+
+  printf "%f %f %f" (sub look_from look_at).x (sub look_from look_at).y (sub look_from look_at).z;
+
+  let horizontal = scale u viewpoint_width in
+  let vertical = scale v viewpoint_height in
+  let lower_left_corner =
+    scale
+      (add
+         (add (scale horizontal (1.0 /. 2.0)) (scale vertical (1.0 /. 2.0)))
+         w)
+      (-1.0)
+  in
+  { origin = look_from; lower_left_corner; horizontal; vertical }
+
+let get_ray_from_camera u v camera =
+  {
+    origin = camera.origin;
+    direction =
+      add
+        (add camera.lower_left_corner (scale camera.horizontal u))
+        (scale camera.vertical v);
+  }
+
+let scene_camera =
+  make_camera
+    { x = -2.0; y = 2.0; z = 1.0 }
+    { x = 0.0; y = 0.0; z = -1.0 }
+    { x = 0.0; y = 1.0; z = 0.0 }
+    90.0 aspect_ratio
+
 let screen_coords =
   Array.init (screen_width * screen_height) ~f:(fun i ->
       let x = float_of_int (i % screen_width) /. float_of_int screen_width in
@@ -199,14 +237,7 @@ let resulting_colors =
              let jitter_y = Random.float (1.0 /. float_of_int screen_height) in
              add
                (trace
-                  {
-                    origin = { x = 0.0; y = 0.0; z = 0.0 };
-                    direction =
-                      add lower_left_corner
-                        (add
-                           (scale horizontal (x +. jitter_x))
-                           (scale vertical (y +. jitter_y)));
-                  }
+                  (get_ray_from_camera (x +. jitter_x) (y +. jitter_y) scene_camera)
                   max_depth)
                color))
         (1.0 /. fsamples_per_pixel))
