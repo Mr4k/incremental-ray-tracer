@@ -270,9 +270,13 @@ let time f =
   res
 
 let () =
+  printf "first render\n";
   time stabilize;
   print_endline "";
 
+  Var.set (materials.(1)) (M' { albedo = { x = 1.0; y = 1.0; z = 1.0 }; fuzziness = 0.0; });
+
+  printf "modified render\n";
   time stabilize;
   print_endline "";
   let packed_color_array =
