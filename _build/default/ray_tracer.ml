@@ -1,6 +1,10 @@
 open Core
 open Graphics
 
+module Inc : Incremental.S = Incremental.Make ()
+
+open Inc
+
 let () = open_graph ""
 
 type vec3 = { x : float; y : float; z : float }
@@ -106,12 +110,12 @@ type metal = { albedo : vec3; fuzziness : float }
 
 type material = L' of lambertian | M' of metal
 
-let _materials_list : material list =
+let _materials_list =
   [
-    L' { color = { x = 0.8; y = 0.8; z = 0.0 } };
-    L' { color = { x = 0.7; y = 0.3; z = 0.3 } };
-    M' { albedo = { x = 0.8; y = 0.8; z = 0.8 }; fuzziness = 0.0 };
-    M' { albedo = { x = 0.8; y = 0.6; z = 0.2 }; fuzziness = 0.5 };
+    Var.create(L' { color = { x = 0.8; y = 0.8; z = 0.0 } });
+    Var.create(L' { color = { x = 0.7; y = 0.3; z = 0.3 } });
+    Var.create(M' { albedo = { x = 0.8; y = 0.8; z = 0.8 }; fuzziness = 0.0 });
+    Var.create(M' { albedo = { x = 0.8; y = 0.6; z = 0.2 }; fuzziness = 0.5 });
   ]
 
 let materials = Array.of_list _materials_list
@@ -125,25 +129,24 @@ let random_unit_vector () =
   let r = Float.sqrt (1.0 -. (z *. z)) in
   { x = r *. Float.cos a; y = r *. Float.sin a; z }
 
-let rec trace r n =
-  if n <= 0 then { x = 0.0; y = 0.0; z = 0.0 }
+let rec trace r n = Inc.bind2 r n ~f:(fun r n->
+  if n <= 0 then Inc.return { x = 0.0; y = 0.0; z = 0.0 }
   else
-    match check_collision_with_world r world 0.001 10000.0 with
+    match (check_collision_with_world r world 0.001 10000.0) with
     | None, _ ->
         let n = norm r.direction in
         let t = 0.5 *. (n.y +. 1.0) in
-        add (scale white (1.0 -. t)) (scale sky_dark_blue t)
+        Inc.return (add (scale white (1.0 -. t)) (scale sky_dark_blue t))
     | Some hit_record, material_index -> (
         (*scale (add hit_record.face_normal { x = 1.0; y = 1.0; z = 1.0 }) 0.5*)
         let material = materials.(material_index) in
-        match material with
+        Inc.bind (Var.watch material) ~f:(fun material -> match material with
         | L' lambertian ->
             let direction =
               add (random_unit_vector ()) hit_record.face_normal
             in
-            hammard
-              (trace { origin = hit_record.position; direction } (n - 1))
-              lambertian.color
+              Inc.map (trace (Inc.return{ origin = hit_record.position; direction }) (Inc.return (n - 1))) ~f:(fun trace_color ->
+                hammard lambertian.color trace_color)
         | M' metal ->
             let direction =
               add
@@ -151,10 +154,9 @@ let rec trace r n =
                 (reflect r.direction hit_record.face_normal)
             in
             if Float.(dot direction hit_record.face_normal > 0.0) then
-              hammard
-                (trace { origin = hit_record.position; direction } (n - 1))
-                metal.albedo
-            else { x = 0.0; y = 0.0; z = 0.0 } )
+              Inc.map (trace (Inc.return{ origin = hit_record.position; direction }) (Inc.return (n - 1))) ~f:(fun trace_color ->
+                hammard metal.albedo trace_color)
+            else Inc.return{ x = 0.0; y = 0.0; z = 0.0 } )))
 
 let aspect_ratio : float = 16.0 /. 9.0
 
@@ -170,8 +172,6 @@ type camera = {
 }
 
 let make_camera look_from look_at up vfov aspect_ratio =
-  printf "ever called?";
-  
   let theta = vfov /. 180.0 *. Float.pi in
   let h = Float.tan (theta /. 2.0) in
   let viewpoint_height = 2.0 *. h in
@@ -180,8 +180,6 @@ let make_camera look_from look_at up vfov aspect_ratio =
   let w = norm (sub look_from look_at) in
   let u = norm (cross up w) in
   let v = cross w u in
-
-  printf "%f %f %f" (sub look_from look_at).x (sub look_from look_at).y (sub look_from look_at).z;
 
   let horizontal = scale u viewpoint_width in
   let vertical = scale v viewpoint_height in
@@ -218,9 +216,9 @@ let screen_coords =
       in
       (x, y))
 
-let samples_per_pixel = 100
+let samples_per_pixel = 10
 
-let max_depth = 50
+let max_depth = 10
 
 (* low hanging fruit replace samples with a generator*)
 let samples = Array.init samples_per_pixel ~f:(fun i -> i)
@@ -230,17 +228,17 @@ let fsamples_per_pixel = float_of_int samples_per_pixel
 let resulting_colors =
   Array.map screen_coords ~f:(fun screen_coord ->
       let x, y = screen_coord in
-      scale
-        (Array.fold samples ~init:{ x = 0.0; y = 0.0; z = 0.0 }
-           ~f:(fun color _ ->
-             let jitter_x = Random.float (1.0 /. float_of_int screen_width) in
-             let jitter_y = Random.float (1.0 /. float_of_int screen_height) in
-             add
-               (trace
-                  (get_ray_from_camera (x +. jitter_x) (y +. jitter_y) scene_camera)
-                  max_depth)
-               color))
-        (1.0 /. fsamples_per_pixel))
+      let pixel_samples = (Array.map samples
+          ~f:(fun _ ->
+            let jitter_x = Random.float (1.0 /. float_of_int screen_width) in
+            let jitter_y = Random.float (1.0 /. float_of_int screen_height) in
+              (trace
+                (Inc.return (get_ray_from_camera (x +. jitter_x) (y +. jitter_y) scene_camera))
+                (Inc.return max_depth)))) in
+      let result = Inc.sum pixel_samples ~zero: {x=0.0;y=0.0;z=0.0} ~add:(fun old element -> add old element)
+            ~sub:(fun old element -> sub old element) in
+        observe result
+      )
 
 let pack_color_to_int color =
   let r = min (int_of_float (Float.sqrt color.x *. 256.0)) 255 in
@@ -248,9 +246,22 @@ let pack_color_to_int color =
   let b = min (int_of_float (Float.sqrt color.z *. 256.0)) 255 in
   b lor ((g lor (r lsl 8)) lsl 8)
 
+let time f =
+  let t = Unix.gettimeofday () in
+  let res = f () in
+  Printf.printf "Execution time: %f seconds\n"
+                (Unix.gettimeofday () -. t);
+  res
+
 let () =
+  time stabilize;
+  print_endline "";
+
+  
+  time stabilize;
+  print_endline "";
   let packed_color_array =
-    Array.map resulting_colors ~f:(fun color -> pack_color_to_int color)
+    Array.map resulting_colors ~f:(fun color -> pack_color_to_int (scale (Observer.value_exn color) (1.0/.fsamples_per_pixel)))
   in
   let color_matrix =
     Array.init screen_height ~f:(fun i ->

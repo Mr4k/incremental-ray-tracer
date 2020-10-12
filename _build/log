@@ -1,10 +1,10 @@
-# dune exec ./ray_tracer.exe
+# dune build @fmt --auto-promote
 # OCAMLPARAM: unset
 # Workspace root: /Users/peterstefek/Projects/incremental-computation
-$ /usr/bin/getconf _NPROCESSORS_ONLN > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/dune12354d.output 2> /dev/null
+$ /usr/bin/getconf _NPROCESSORS_ONLN > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/dunefd729c.output 2> /dev/null
 # Auto-detected concurrency: 4
 # disable binary cache
-$ /usr/local/bin/ocamlc.opt -config > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/dune951751.output
+$ /usr/local/bin/ocamlc.opt -config > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m0000gn/T/dunec0d6d5.output
 # Dune context:
 #  { name = "default"
 #  ; kind = "default"
@@ -107,4 +107,165 @@ $ /usr/local/bin/ocamlc.opt -config > /var/folders/c3/7174yc593_5ckmdfxzv3fl3m00
 #      ; windows_unicode = false
 #      }
 #  }
-# Workspace root: /Users/peterstefek/Projects/incremental-computation
+$ (cd _build/default && /Users/peterstefek/.opam/default/bin/ocamlformat --impl ray_tracer.ml) > _build/default/.formatted/ray_tracer.ml
+$ (cd _build/default && /usr/local/bin/git diff --no-index --color=always -u ray_tracer.ml .formatted/ray_tracer.ml)
+> diff --git a/ray_tracer.ml b/.formatted/ray_tracer.ml
+> index dc02aae..ad646af 100644
+> --- a/ray_tracer.ml
+> +++ b/.formatted/ray_tracer.ml
+> @@ -25,7 +25,7 @@ let sub a b = { x = a.x -. b.x; y = a.y -. b.y; z = a.z -. b.z }
+>  
+>  let hammard a b = { x = a.x *. b.x; y = a.y *. b.y; z = a.z *. b.z }
+>  
+> -let len a = Float.sqrt(dot a a)
+> +let len a = Float.sqrt (dot a a)
+>  
+>  let cross a b =
+>    {
+> @@ -112,10 +112,10 @@ type material = L' of lambertian | M' of metal
+>  
+>  let _materials_list =
+>    [
+> -    Var.create(L' { color = { x = 0.8; y = 0.8; z = 0.0 } });
+> -    Var.create(L' { color = { x = 0.7; y = 0.3; z = 0.3 } });
+> -    Var.create(M' { albedo = { x = 0.8; y = 0.8; z = 0.8 }; fuzziness = 0.0 });
+> -    Var.create(M' { albedo = { x = 0.8; y = 0.6; z = 0.2 }; fuzziness = 0.5 });
+> +    Var.create (L' { color = { x = 0.8; y = 0.8; z = 0.0 } });
+> +    Var.create (L' { color = { x = 0.7; y = 0.3; z = 0.3 } });
+> +    Var.create (M' { albedo = { x = 0.8; y = 0.8; z = 0.8 }; fuzziness = 0.0 });
+> +    Var.create (M' { albedo = { x = 0.8; y = 0.6; z = 0.2 }; fuzziness = 0.5 });
+>    ]
+>  
+>  let materials = Array.of_list _materials_list
+> @@ -129,34 +129,45 @@ let random_unit_vector () =
+>    let r = Float.sqrt (1.0 -. (z *. z)) in
+>    { x = r *. Float.cos a; y = r *. Float.sin a; z }
+>  
+> -let rec trace r n = Inc.bind2 r n ~f:(fun r n->
+> -  if n <= 0 then Inc.return { x = 0.0; y = 0.0; z = 0.0 }
+> -  else
+> -    match (check_collision_with_world r world 0.001 10000.0) with
+> -    | None, _ ->
+> -        let n = norm r.direction in
+> -        let t = 0.5 *. (n.y +. 1.0) in
+> -        Inc.return (add (scale white (1.0 -. t)) (scale sky_dark_blue t))
+> -    | Some hit_record, material_index -> (
+> -        (*scale (add hit_record.face_normal { x = 1.0; y = 1.0; z = 1.0 }) 0.5*)
+> -        let material = materials.(material_index) in
+> -        Inc.bind (Var.watch material) ~f:(fun material -> match material with
+> -        | L' lambertian ->
+> -            let direction =
+> -              add (random_unit_vector ()) hit_record.face_normal
+> -            in
+> -              Inc.map (trace (Inc.return{ origin = hit_record.position; direction }) (Inc.return (n - 1))) ~f:(fun trace_color ->
+> -                hammard lambertian.color trace_color)
+> -        | M' metal ->
+> -            let direction =
+> -              add
+> -                (scale (random_unit_vector ()) metal.fuzziness)
+> -                (reflect r.direction hit_record.face_normal)
+> -            in
+> -            if Float.(dot direction hit_record.face_normal > 0.0) then
+> -              Inc.map (trace (Inc.return{ origin = hit_record.position; direction }) (Inc.return (n - 1))) ~f:(fun trace_color ->
+> -                hammard metal.albedo trace_color)
+> -            else Inc.return{ x = 0.0; y = 0.0; z = 0.0 } )))
+> +let rec trace r n =
+> +  Inc.bind2 r n ~f:(fun r n ->
+> +      if n <= 0 then Inc.return { x = 0.0; y = 0.0; z = 0.0 }
+> +      else
+> +        match check_collision_with_world r world 0.001 10000.0 with
+> +        | None, _ ->
+> +            let n = norm r.direction in
+> +            let t = 0.5 *. (n.y +. 1.0) in
+> +            Inc.return (add (scale white (1.0 -. t)) (scale sky_dark_blue t))
+> +        | Some hit_record, material_index ->
+> +            (*scale (add hit_record.face_normal { x = 1.0; y = 1.0; z = 1.0 }) 0.5*)
+> +            let material = materials.(material_index) in
+> +            Inc.bind (Var.watch material) ~f:(fun material ->
+> +                match material with
+> +                | L' lambertian ->
+> +                    let direction =
+> +                      add (random_unit_vector ()) hit_record.face_normal
+> +                    in
+> +                    Inc.map
+> +                      (trace
+> +                         (Inc.return
+> +                            { origin = hit_record.position; direction })
+> +                         (Inc.return (n - 1)))
+> +                      ~f:(fun trace_color ->
+> +                        hammard lambertian.color trace_color)
+> +                | M' metal ->
+> +                    let direction =
+> +                      add
+> +                        (scale (random_unit_vector ()) metal.fuzziness)
+> +                        (reflect r.direction hit_record.face_normal)
+> +                    in
+> +                    if Float.(dot direction hit_record.face_normal > 0.0) then
+> +                      Inc.map
+> +                        (trace
+> +                           (Inc.return
+> +                              { origin = hit_record.position; direction })
+> +                           (Inc.return (n - 1)))
+> +                        ~f:(fun trace_color -> hammard metal.albedo trace_color)
+> +                    else Inc.return { x = 0.0; y = 0.0; z = 0.0 }))
+>  
+>  let aspect_ratio : float = 16.0 /. 9.0
+>  
+> @@ -228,17 +239,23 @@ let fsamples_per_pixel = float_of_int samples_per_pixel
+>  let resulting_colors =
+>    Array.map screen_coords ~f:(fun screen_coord ->
+>        let x, y = screen_coord in
+> -      let pixel_samples = (Array.map samples
+> -          ~f:(fun _ ->
+> +      let pixel_samples =
+> +        Array.map samples ~f:(fun _ ->
+>              let jitter_x = Random.float (1.0 /. float_of_int screen_width) in
+>              let jitter_y = Random.float (1.0 /. float_of_int screen_height) in
+> -              (trace
+> -                (Inc.return (get_ray_from_camera (x +. jitter_x) (y +. jitter_y) scene_camera))
+> -                (Inc.return max_depth)))) in
+> -      let result = Inc.sum pixel_samples ~zero: {x=0.0;y=0.0;z=0.0} ~add:(fun old element -> add old element)
+> -            ~sub:(fun old element -> sub old element) in
+> -        observe result
+> -      )
+> +            trace
+> +              (Inc.return
+> +                 (get_ray_from_camera (x +. jitter_x) (y +. jitter_y)
+> +                    scene_camera))
+> +              (Inc.return max_depth))
+> +      in
+> +      let result =
+> +        Inc.sum pixel_samples
+> +          ~zero:{ x = 0.0; y = 0.0; z = 0.0 }
+> +          ~add:(fun old element -> add old element)
+> +          ~sub:(fun old element -> sub old element)
+> +      in
+> +      observe result)
+>  
+>  let pack_color_to_int color =
+>    let r = min (int_of_float (Float.sqrt color.x *. 256.0)) 255 in
+> @@ -249,19 +266,19 @@ let pack_color_to_int color =
+>  let time f =
+>    let t = Unix.gettimeofday () in
+>    let res = f () in
+> -  Printf.printf "Execution time: %f seconds\n"
+> -                (Unix.gettimeofday () -. t);
+> +  Printf.printf "Execution time: %f seconds\n" (Unix.gettimeofday () -. t);
+>    res
+>  
+>  let () =
+>    time stabilize;
+>    print_endline "";
+>  
+> -  
+>    time stabilize;
+>    print_endline "";
+>    let packed_color_array =
+> -    Array.map resulting_colors ~f:(fun color -> pack_color_to_int (scale (Observer.value_exn color) (1.0/.fsamples_per_pixel)))
+> +    Array.map resulting_colors ~f:(fun color ->
+> +        pack_color_to_int
+> +          (scale (Observer.value_exn color) (1.0 /. fsamples_per_pixel)))
+>    in
+>    let color_matrix =
+>      Array.init screen_height ~f:(fun i ->
+[1]
