@@ -5,6 +5,13 @@ module Inc : Incremental.S = Incremental.Make ()
 
 open Inc
 
+let time label f =
+  let t = Unix.gettimeofday () in
+  let res = f () in
+  Printf.printf "Execution time for %s: %f seconds\n" label (Unix.gettimeofday () -. t);
+  print_endline "";
+  res
+
 let () = open_graph ""
 
 type vec3 = { x : float; y : float; z : float }
@@ -137,15 +144,12 @@ let random_unit_vector () =
 let rec trace params n =
     match n with
     | 0 -> return {x=0.0;y=0.0;z=0.0}
-    | _ -> let r = map params ~f:(fun params -> (
-        let (_, next_ray) = params in
-        next_ray)) in
-      let hit_incr = map r ~f:(fun r -> check_collision_with_world r world 0.001 10000.0) in
-      bind2 params hit_incr ~f:(fun params collision -> (
-        let (prev_color, prev_ray) = params in 
-        match collision with
+    | _ -> 
+      bind params ~f:(fun params ->
+        let (prev_color, ray) = params in
+        match check_collision_with_world ray world 0.001 10000.0  with
           | None, _ -> 
-              let n = norm prev_ray.direction in
+              let n = norm ray.direction in
               let t = 0.5 *. (n.y +. 1.0) in
               return (hammard prev_color (add (scale white (1.0 -. t)) (scale sky_dark_blue t)))
           | Some hit_record, material_index ->
@@ -162,14 +166,14 @@ let rec trace params n =
                       let direction =
                         add
                           (scale (random_unit_vector ()) metal.fuzziness)
-                          (reflect prev_ray.direction hit_record.face_normal)
+                          (reflect ray.direction hit_record.face_normal)
                       in
                       if Float.(dot direction hit_record.face_normal > 0.0) then
                         (hammard prev_color metal.albedo, { origin = hit_record.position; direction })
                       else
                         ({ x = 0.0; y = 0.0; z = 0.0 }, { origin = hit_record.position; direction })) in
             trace next_trace_params (n - 1)
-        ))
+        )
 
 let aspect_ratio : float = 16.0 /. 9.0
 
@@ -241,8 +245,8 @@ let fsamples_per_pixel = float_of_int samples_per_pixel
 let resulting_colors =
   Array.map screen_coords ~f:(fun screen_coord ->
       let x, y = screen_coord in
-      printf "%f %f\n" x y;
-      print_endline "";
+      (*printf "%f %f\n" x y;
+      print_endline "";*)
       let pixel_samples =
         Array.map samples ~f:(fun _ ->
             let jitter_x = Random.float (1.0 /. float_of_int screen_width) in
@@ -267,16 +271,12 @@ let pack_color_to_int color =
   let b = min (int_of_float (Float.sqrt color.z *. 256.0)) 255 in
   b lor ((g lor (r lsl 8)) lsl 8)
 
-let time f =
-  let t = Unix.gettimeofday () in
-  let res = f () in
-  Printf.printf "Execution time: %f seconds\n" (Unix.gettimeofday () -. t);
-  res
-
 let () =
   printf "first render\n";
   print_endline "";
-  time stabilize;
+  time "stabilize" stabilize;
+  let n = Inc.State.num_nodes_changed Inc.State.t in
+  printf "num nodes created %i" n;
   print_endline ""
 
 let () =
@@ -286,7 +286,7 @@ let () =
 
     printf "modified render fuzziness %i\n " !i;
     print_endline "";
-    time stabilize;
+    time "stabilize" stabilize;
     print_endline "";
 
 

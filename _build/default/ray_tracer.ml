@@ -5,6 +5,13 @@ module Inc : Incremental.S = Incremental.Make ()
 
 open Inc
 
+let time label f =
+  let t = Unix.gettimeofday () in
+  let res = f () in
+  Printf.printf "Execution time for %s: %f seconds\n" label (Unix.gettimeofday () -. t);
+  print_endline "";
+  res
+
 let () = open_graph ""
 
 type vec3 = { x : float; y : float; z : float }
@@ -141,7 +148,7 @@ let rec trace params n =
         let (_, next_ray) = params in
         next_ray)) in
       let hit_incr = map r ~f:(fun r -> check_collision_with_world r world 0.001 10000.0) in
-      bind2 params hit_incr ~f:(fun params collision -> (
+      bind2 params hit_incr ~f:(fun params collision ->
         let (prev_color, prev_ray) = params in 
         match collision with
           | None, _ -> 
@@ -169,7 +176,7 @@ let rec trace params n =
                       else
                         ({ x = 0.0; y = 0.0; z = 0.0 }, { origin = hit_record.position; direction })) in
             trace next_trace_params (n - 1)
-        ))
+        )
 
 let aspect_ratio : float = 16.0 /. 9.0
 
@@ -241,8 +248,8 @@ let fsamples_per_pixel = float_of_int samples_per_pixel
 let resulting_colors =
   Array.map screen_coords ~f:(fun screen_coord ->
       let x, y = screen_coord in
-      printf "%f %f\n" x y;
-      print_endline "";
+      (*printf "%f %f\n" x y;
+      print_endline "";*)
       let pixel_samples =
         Array.map samples ~f:(fun _ ->
             let jitter_x = Random.float (1.0 /. float_of_int screen_width) in
@@ -267,16 +274,12 @@ let pack_color_to_int color =
   let b = min (int_of_float (Float.sqrt color.z *. 256.0)) 255 in
   b lor ((g lor (r lsl 8)) lsl 8)
 
-let time f =
-  let t = Unix.gettimeofday () in
-  let res = f () in
-  Printf.printf "Execution time: %f seconds\n" (Unix.gettimeofday () -. t);
-  res
-
 let () =
   printf "first render\n";
   print_endline "";
-  time stabilize;
+  time "stabilize" stabilize;
+  let n = Inc.State.num_nodes_changed Inc.State.t in
+  printf "num nodes created %i" n;
   print_endline ""
 
 let () =
@@ -286,7 +289,7 @@ let () =
 
     printf "modified render fuzziness %i\n " !i;
     print_endline "";
-    time stabilize;
+    time "stabilize" stabilize;
     print_endline "";
 
 
