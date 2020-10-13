@@ -144,15 +144,12 @@ let random_unit_vector () =
 let rec trace params n =
     match n with
     | 0 -> return {x=0.0;y=0.0;z=0.0}
-    | _ -> let r = map params ~f:(fun params -> (
-        let (_, next_ray) = params in
-        next_ray)) in
-      let hit_incr = map r ~f:(fun r -> check_collision_with_world r world 0.001 10000.0) in
-      bind2 params hit_incr ~f:(fun params collision ->
-        let (prev_color, prev_ray) = params in 
-        match collision with
+    | _ -> 
+      bind params ~f:(fun params ->
+        let (prev_color, ray) = params in
+        match check_collision_with_world ray world 0.001 10000.0  with
           | None, _ -> 
-              let n = norm prev_ray.direction in
+              let n = norm ray.direction in
               let t = 0.5 *. (n.y +. 1.0) in
               return (hammard prev_color (add (scale white (1.0 -. t)) (scale sky_dark_blue t)))
           | Some hit_record, material_index ->
@@ -169,7 +166,7 @@ let rec trace params n =
                       let direction =
                         add
                           (scale (random_unit_vector ()) metal.fuzziness)
-                          (reflect prev_ray.direction hit_record.face_normal)
+                          (reflect ray.direction hit_record.face_normal)
                       in
                       if Float.(dot direction hit_record.face_normal > 0.0) then
                         (hammard prev_color metal.albedo, { origin = hit_record.position; direction })
@@ -236,9 +233,9 @@ let screen_coords =
       in
       (x, y))
 
-let samples_per_pixel = 20
+let samples_per_pixel = 1
 
-let max_depth = 10
+let max_depth = 1
 
 (* low hanging fruit replace samples with a generator*)
 let samples = Array.init samples_per_pixel ~f:(fun i -> i)
@@ -280,7 +277,8 @@ let () =
   time "stabilize" stabilize;
   let n = Inc.State.num_nodes_changed Inc.State.t in
   printf "num nodes created %i" n;
-  print_endline ""
+  print_endline "";
+  Gc.print_stat stdout
 
 let () =
   let i = ref 0 in

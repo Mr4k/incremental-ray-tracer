@@ -233,9 +233,9 @@ let screen_coords =
       in
       (x, y))
 
-let samples_per_pixel = 20
+let samples_per_pixel = 1
 
-let max_depth = 10
+let max_depth = 1
 
 (* low hanging fruit replace samples with a generator*)
 let samples = Array.init samples_per_pixel ~f:(fun i -> i)
@@ -277,7 +277,8 @@ let () =
   time "stabilize" stabilize;
   let n = Inc.State.num_nodes_changed Inc.State.t in
   printf "num nodes created %i" n;
-  print_endline ""
+  print_endline "";
+  Gc.print_stat stdout
 
 let () =
   let i = ref 0 in
