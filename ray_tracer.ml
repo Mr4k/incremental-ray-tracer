@@ -99,13 +99,19 @@ let check_collision_with_world ray world t_min t_max =
   in
   (record, idx)
 
-let world =
-  [
-    Var.create { center = { x = 0.0; y = -100.5; z = -1.0 }; radius = 100.0; };
-    Var.create { center = { x = 0.0; y = 0.0; z = -1.0 }; radius = 0.5 };
-    Var.create { center = { x = -1.0; y = 0.0; z = -1.0 }; radius = 0.5 };
-    Var.create { center = { x = 1.0; y = 0.0; z = -1.0 }; radius = 0.5 };
-  ]
+let num_spheres = 100
+
+let () = Random.init 5
+
+let world = 
+  let lst = List.init num_spheres ~f:(fun _ ->
+    let radius = Random.float_range 0.05 1.0 in
+    Var.create { center = {
+      x = Random.float_range (-.5.0) 5.0;
+      y = radius -. 0.5;
+      z = Random.float_range (-.5.0) 5.0;
+    }; radius = radius; } ) in
+  List.append lst [Var.create { center = { x = 0.0; y = -100.5; z = -1.0 }; radius = 100.0; }]
 
 type lambertian = { color : vec3 }
 
@@ -114,16 +120,12 @@ type metal = { albedo : vec3; fuzziness : float }
 type material = L' of lambertian | M' of metal
 
 let _materials_list =
-  [
-    Var.create (L' { color = { x = 0.8; y = 0.8; z = 0.0 } });
-    Var.create (L' { color = { x = 0.7; y = 0.3; z = 0.3 } });
-    Var.create (M' { albedo = { x = 0.8; y = 0.8; z = 0.8 }; fuzziness = 0.0 });
-    Var.create (M' { albedo = { x = 0.8; y = 0.6; z = 0.2 }; fuzziness = 0.5 });
-  ]
+  let lst = List.init num_spheres ~f:(fun _ ->
+    let fuzziness = Random.float 1.0 in 
+    Var.create (M' { albedo = { x = Random.float 1.0; y = Random.float 1.0; z = Random.float 1.0 }; fuzziness=fuzziness; })) in
+  List.append lst [Var.create (L' { color = { x = 0.8; y = 0.8; z = 0.0 } })]
 
 let materials = Array.of_list _materials_list
-
-let () = Random.init 0
 
 (* this function contains a gross hack to take a fake argument which by passes ocaml's apparent restriction on recursive no argument functions*)
 let random_unit_vector () =
@@ -214,10 +216,10 @@ let get_ray_from_camera u v camera =
 
 let scene_camera =
   make_camera
-    { x = -2.0; y = 2.0; z = 1.0 }
+    { x = -5.0; y = 5.0; z = 5.0 }
     { x = 0.0; y = 0.0; z = -1.0 }
     { x = 0.0; y = 1.0; z = 0.0 }
-    90.0 aspect_ratio
+    60.0 aspect_ratio
 
 let screen_coords =
   Array.init (screen_width * screen_height) ~f:(fun i ->
@@ -227,7 +229,7 @@ let screen_coords =
       in
       (x, y))
 
-let samples_per_pixel = 10
+let samples_per_pixel = 20
 
 let max_depth = 10
 
@@ -239,6 +241,8 @@ let fsamples_per_pixel = float_of_int samples_per_pixel
 let resulting_colors =
   Array.map screen_coords ~f:(fun screen_coord ->
       let x, y = screen_coord in
+      printf "%f %f\n" x y;
+      print_endline "";
       let pixel_samples =
         Array.map samples ~f:(fun _ ->
             let jitter_x = Random.float (1.0 /. float_of_int screen_width) in
@@ -271,27 +275,31 @@ let time f =
 
 let () =
   printf "first render\n";
-  time stabilize;
   print_endline "";
-
-  Var.set (materials.(1)) (M' { albedo = { x = 1.0; y = 1.0; z = 1.0 }; fuzziness = 0.0; });
-
-  printf "modified render\n";
   time stabilize;
-  print_endline "";
-  let packed_color_array =
-    Array.map resulting_colors ~f:(fun color ->
-        pack_color_to_int
-          (scale (Observer.value_exn color) (1.0 /. fsamples_per_pixel)))
-  in
-  let color_matrix =
-    Array.init screen_height ~f:(fun i ->
-        Array.sub packed_color_array ~pos:(i * screen_width) ~len:screen_width)
-  in
-  let img = make_image color_matrix in
-  draw_image img 0 0
+  print_endline ""
 
 let () =
+  let i = ref 0 in
   while 0 < 1 do
-    ()
+    Var.set (materials.(!i)) (M' { albedo = { x = Random.float 1.0; y = Random.float 1.0; z = Random.float 1.0 }; fuzziness = Random.float 1.0; });
+
+    printf "modified render fuzziness %i\n " !i;
+    print_endline "";
+    time stabilize;
+    print_endline "";
+
+
+    let packed_color_array =
+      Array.map resulting_colors ~f:(fun color ->
+          pack_color_to_int
+            (scale (Observer.value_exn color) (1.0 /. fsamples_per_pixel)))
+    in
+    let color_matrix =
+      Array.init screen_height ~f:(fun i ->
+          Array.sub packed_color_array ~pos:(i * screen_width) ~len:screen_width)
+    in
+    let img = make_image color_matrix in
+    draw_image img 0 0;
+    i := (!i + 1) % num_spheres;
   done
