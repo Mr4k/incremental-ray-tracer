@@ -42,9 +42,10 @@ let norm a =
 
 type sphere = { center : vec3; radius : float }
 
-type hit_record = { t : float; position : vec3; face_normal : vec3 }
+type hit_record = { t : float; position : vec3; face_normal : vec3; sphere: sphere Var.t }
 
-let check_collision_with_sphere ray sphere t_min t_max =
+let check_collision_with_sphere ray sphere_var t_min t_max =
+  let sphere = Var.value sphere_var in
   let oc = sub ray.origin sphere.center in
   let a = dot ray.direction ray.direction in
   let half_b = dot oc ray.direction in
@@ -78,10 +79,12 @@ let check_collision_with_sphere ray sphere t_min t_max =
             t = temp;
             position = hit_pos;
             face_normal = scale outward_normal face_dir;
+            sphere = sphere_var;
           }
     | None -> None
   else None
 
+let zero = { x=0.0;y=0.0;z=0.0 }
 let white = { x = 1.0; y = 1.0; z = 1.0 }
 
 let sky_dark_blue = { x = 0.5; y = 0.7; z = 1.0 }
@@ -98,10 +101,10 @@ let check_collision_with_world ray world t_min t_max =
 
 let world =
   [
-    { center = { x = 0.0; y = -100.5; z = -1.0 }; radius = 100.0 };
-    { center = { x = 0.0; y = 0.0; z = -1.0 }; radius = 0.5 };
-    { center = { x = -1.0; y = 0.0; z = -1.0 }; radius = 0.5 };
-    { center = { x = 1.0; y = 0.0; z = -1.0 }; radius = 0.5 };
+    Var.create { center = { x = 0.0; y = -100.5; z = -1.0 }; radius = 100.0; };
+    Var.create { center = { x = 0.0; y = 0.0; z = -1.0 }; radius = 0.5 };
+    Var.create { center = { x = -1.0; y = 0.0; z = -1.0 }; radius = 0.5 };
+    Var.create { center = { x = 1.0; y = 0.0; z = -1.0 }; radius = 0.5 };
   ]
 
 type lambertian = { color : vec3 }
@@ -129,45 +132,42 @@ let random_unit_vector () =
   let r = Float.sqrt (1.0 -. (z *. z)) in
   { x = r *. Float.cos a; y = r *. Float.sin a; z }
 
-let rec trace r n =
-  Inc.bind2 r n ~f:(fun r n ->
-      if n <= 0 then Inc.return { x = 0.0; y = 0.0; z = 0.0 }
-      else
-        match check_collision_with_world r world 0.001 10000.0 with
-        | None, _ ->
-            let n = norm r.direction in
-            let t = 0.5 *. (n.y +. 1.0) in
-            Inc.return (add (scale white (1.0 -. t)) (scale sky_dark_blue t))
-        | Some hit_record, material_index ->
-            (*scale (add hit_record.face_normal { x = 1.0; y = 1.0; z = 1.0 }) 0.5*)
-            let material = materials.(material_index) in
-            Inc.bind (Var.watch material) ~f:(fun material ->
-                match material with
-                | L' lambertian ->
-                    let direction =
-                      add (random_unit_vector ()) hit_record.face_normal
-                    in
-                    Inc.map
-                      (trace
-                         (Inc.return
-                            { origin = hit_record.position; direction })
-                         (Inc.return (n - 1)))
-                      ~f:(fun trace_color ->
-                        hammard lambertian.color trace_color)
-                | M' metal ->
-                    let direction =
-                      add
-                        (scale (random_unit_vector ()) metal.fuzziness)
-                        (reflect r.direction hit_record.face_normal)
-                    in
-                    if Float.(dot direction hit_record.face_normal > 0.0) then
-                      Inc.map
-                        (trace
-                           (Inc.return
-                              { origin = hit_record.position; direction })
-                           (Inc.return (n - 1)))
-                        ~f:(fun trace_color -> hammard metal.albedo trace_color)
-                    else Inc.return { x = 0.0; y = 0.0; z = 0.0 }))
+let rec trace params n =
+    match n with
+    | 0 -> return {x=0.0;y=0.0;z=0.0}
+    | _ -> let r = map params ~f:(fun params -> (
+        let (_, next_ray) = params in
+        next_ray)) in
+      let hit_incr = map r ~f:(fun r -> check_collision_with_world r world 0.001 10000.0) in
+      bind2 params hit_incr ~f:(fun params collision -> (
+        let (prev_color, prev_ray) = params in 
+        match collision with
+          | None, _ -> 
+              let n = norm prev_ray.direction in
+              let t = 0.5 *. (n.y +. 1.0) in
+              return (hammard prev_color (add (scale white (1.0 -. t)) (scale sky_dark_blue t)))
+          | Some hit_record, material_index ->
+              (*scale (add hit_record.face_normal { x = 1.0; y = 1.0; z = 1.0 }) 0.5*)
+              let material = materials.(material_index) in
+              let next_trace_params = Inc.map (Var.watch material) ~f:(fun material ->
+                  match material with
+                  | L' lambertian ->
+                      let direction =
+                        add (random_unit_vector ()) hit_record.face_normal
+                      in
+                        (hammard prev_color lambertian.color, { origin = hit_record.position; direction })
+                  | M' metal ->
+                      let direction =
+                        add
+                          (scale (random_unit_vector ()) metal.fuzziness)
+                          (reflect prev_ray.direction hit_record.face_normal)
+                      in
+                      if Float.(dot direction hit_record.face_normal > 0.0) then
+                        (hammard prev_color metal.albedo, { origin = hit_record.position; direction })
+                      else
+                        ({ x = 0.0; y = 0.0; z = 0.0 }, { origin = hit_record.position; direction })) in
+            trace next_trace_params (n - 1)
+        ))
 
 let aspect_ratio : float = 16.0 /. 9.0
 
@@ -245,9 +245,9 @@ let resulting_colors =
             let jitter_y = Random.float (1.0 /. float_of_int screen_height) in
             trace
               (Inc.return
-                 (get_ray_from_camera (x +. jitter_x) (y +. jitter_y)
-                    scene_camera))
-              (Inc.return max_depth))
+                 (white, (get_ray_from_camera (x +. jitter_x) (y +. jitter_y)
+                    scene_camera)))
+              max_depth)
       in
       let result =
         Inc.sum pixel_samples
