@@ -1,16 +1,10 @@
 open Core
 open Graphics
+open Owl
 
 module Inc : Incremental.S = Incremental.Make ()
 
 open Inc
-
-let time label f =
-  let t = Unix.gettimeofday () in
-  let res = f () in
-  Printf.printf "Execution time for %s: %f seconds\n" label (Unix.gettimeofday () -. t);
-  print_endline "";
-  res
 
 let () = open_graph ""
 
@@ -128,7 +122,7 @@ type material = L' of lambertian | M' of metal
 
 let _materials_list =
   let lst = List.init num_spheres ~f:(fun _ ->
-    let fuzziness = Random.float 1.0 in 
+    let fuzziness = 1.0 in 
     Var.create (M' { albedo = { x = Random.float 1.0; y = Random.float 1.0; z = Random.float 1.0 }; fuzziness=fuzziness; })) in
   List.append lst [Var.create (L' { color = { x = 0.8; y = 0.8; z = 0.0 } })]
 
@@ -233,7 +227,7 @@ let screen_coords =
       in
       (x, y))
 
-let samples_per_pixel = 1
+let samples_per_pixel = 2
 
 let max_depth = 10
 
@@ -274,23 +268,24 @@ let pack_color_to_int color =
 let () =
   printf "first render\n";
   print_endline "";
-  time "stabilize" stabilize;
+  let t = Unix.gettimeofday () in
+  stabilize ();
+  let elapsed = (Unix.gettimeofday () -. t) in 
+  printf "inital elasped %f seconds\n" elapsed;
   let n = Inc.State.num_nodes_changed Inc.State.t in
   printf "num nodes created %i" n;
   print_endline "";
   Gc.print_stat stdout
 
-(*let () =
-  let i = ref 0 in
-  while 0 < 1 do
-    Var.set (materials.(!i)) (M' { albedo = { x = Random.float 1.0; y = Random.float 1.0; z = Random.float 1.0 }; fuzziness = Random.float 1.0; });
+let () =
+  let samples = Array.init num_spheres ~f:(fun i -> (
+    Var.set (materials.(i)) (M' { albedo = { x = Random.float 1.0; y = Random.float 1.0; z = Random.float 1.0 }; fuzziness = 0.0; });
 
-    printf "modified render fuzziness %i\n " !i;
-    print_endline "";
-    time "stabilize" stabilize;
-    print_endline "";
+    let t = Unix.gettimeofday () in
+    stabilize ();
+    let elapsed = (Unix.gettimeofday () -. t) in 
 
-
+    (*Update the screen if users is watching in interactive mode*)
     let packed_color_array =
       Array.map resulting_colors ~f:(fun color ->
           pack_color_to_int
@@ -302,5 +297,9 @@ let () =
     in
     let img = make_image color_matrix in
     draw_image img 0 0;
-    i := (!i + 1) % num_spheres;
-  done*)
+
+    elapsed
+  )) in 
+  printf "num rays %i\n" (samples_per_pixel * screen_width * screen_height);
+  printf "50th percentile %f seconds\n" (Stats.percentile samples 50.0);
+  printf "95th percentile %f seconds\n" (Stats.percentile samples 95.0);

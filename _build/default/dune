@@ -1,0 +1,22 @@
+;; This declares the hello_world executable implemented by hello_world.ml
+
+(executable
+ (name walking)
+ (libraries core incremental)
+ (preprocess
+  (pps ppx_jane))
+ (modules walking))
+
+(executable
+ (name sort)
+ (libraries core incremental)
+ (preprocess
+  (pps ppx_jane))
+ (modules sort))
+
+(executable
+ (name ray_tracer)
+ (libraries core incremental graphics owl)
+ (preprocess
+  (pps ppx_jane))
+ (modules ray_tracer))

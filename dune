@@ -16,7 +16,7 @@
 
 (executable
  (name ray_tracer)
- (libraries core incremental graphics)
+ (libraries core incremental graphics owl)
  (preprocess
   (pps ppx_jane))
  (modules ray_tracer))
