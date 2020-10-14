@@ -235,7 +235,7 @@ let screen_coords =
 
 let samples_per_pixel = 1
 
-let max_depth = 1
+let max_depth = 10
 
 (* low hanging fruit replace samples with a generator*)
 let samples = Array.init samples_per_pixel ~f:(fun i -> i)
@@ -280,7 +280,7 @@ let () =
   print_endline "";
   Gc.print_stat stdout
 
-let () =
+(*let () =
   let i = ref 0 in
   while 0 < 1 do
     Var.set (materials.(!i)) (M' { albedo = { x = Random.float 1.0; y = Random.float 1.0; z = Random.float 1.0 }; fuzziness = Random.float 1.0; });
@@ -303,4 +303,4 @@ let () =
     let img = make_image color_matrix in
     draw_image img 0 0;
     i := (!i + 1) % num_spheres;
-  done
+  done*)
