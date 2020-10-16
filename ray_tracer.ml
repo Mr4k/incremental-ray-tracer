@@ -127,6 +127,7 @@ let _materials_list =
   List.append lst [Var.create (L' { color = { x = 0.8; y = 0.8; z = 0.0 } })]
 
 let materials = Array.of_list _materials_list
+let materials_watch = Array.map materials ~f:(fun mat -> (Var.watch mat))
 
 (* this function contains a gross hack to take a fake argument which by passes ocaml's apparent restriction on recursive no argument functions*)
 let random_unit_vector () =
@@ -148,8 +149,8 @@ let rec trace params n =
               return (hammard prev_color (add (scale white (1.0 -. t)) (scale sky_dark_blue t)))
           | Some hit_record, material_index ->
               (*scale (add hit_record.face_normal { x = 1.0; y = 1.0; z = 1.0 }) 0.5*)
-              let material = materials.(material_index) in
-              let next_trace_params = Inc.map (Var.watch material) ~f:(fun material ->
+              let material = materials_watch.(material_index) in
+              let next_trace_params = Inc.map material ~f:(fun material ->
                   match material with
                   | L' lambertian ->
                       let direction =
@@ -227,7 +228,7 @@ let screen_coords =
       in
       (x, y))
 
-let samples_per_pixel = 2
+let samples_per_pixel = 30
 
 let max_depth = 10
 
