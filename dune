@@ -2,4 +2,4 @@
  (libraries core incremental graphics owl)
  (preprocess
   (pps ppx_jane))
- (modules ray_tracer))
+ (modules incremental_ray_tracer))
