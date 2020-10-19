@@ -5,4 +5,6 @@ This is a somewhat Incremental Ray Tracer (only incremental when materials chang
 
 Tuneable constants (`width`, `height`, `number of rays per pixel`, etc) can be found in `utils/ray_utils.ml`.  
 
-To run this code, you need [opam](https://opam.ocaml.org/) and [dune](https://github.com/ocaml/dune). Then you need to install incremental `opam install incremental`.
+To run this code, you need [opam](https://opam.ocaml.org/) and [dune](https://github.com/ocaml/dune). Then you need to install incremental `opam install incremental`.  
+
+This is my second piece of OCaml code ever so keep that in mind. If you have any tips please contact me at pstefek.dev@gmail.com
