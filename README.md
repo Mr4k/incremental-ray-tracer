@@ -1,5 +1,5 @@
 # incremental-ray-tracer
-The is the code to go with this [blog post](https://www.peterstefek.me/incr-ray-tracer)  
+This is the code to go with this [blog post](https://www.peterstefek.me/incr-ray-tracer)  
 
 This is a somewhat Incremental Ray Tracer (only incremental when materials change, not when spheres move).  
 
