@@ -1,6 +1,5 @@
 build:
-	dune build incremental_ray_tracer.exe
-	dune build standard_ray_tracer.exe
+	dune build
 
 run-incremental:
 	dune exec ./incremental_ray_tracer.exe

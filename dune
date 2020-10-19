@@ -1,13 +1,13 @@
 (executable
  (name incremental_ray_tracer)
- (libraries core incremental graphics owl)
+ (libraries core incremental graphics owl ray_utils)
  (preprocess
   (pps ppx_jane))
  (modules incremental_ray_tracer))
 
 (executable
  (name standard_ray_tracer)
- (libraries core incremental graphics)
+ (libraries core graphics ray_utils)
  (preprocess
   (pps ppx_jane))
  (modules standard_ray_tracer))
