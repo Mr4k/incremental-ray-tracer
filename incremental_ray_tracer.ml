@@ -140,6 +140,14 @@ let rec trace params n =
     match n with
     | 0 -> return {x=0.0;y=0.0;z=0.0}
     | _ -> 
+      (*
+        Omg so many binds! Isn't allocation killing this program?  
+        In my profiling allocation was not actually a problem, I wrote a version where 
+        the new nodes weren't reallocated each time and it actually performed worse, 
+        I suspect it was because that program used more nodes overall but I'm not really sure.
+        I'm not an expert! If you've used Incremental before and have a better way to do this
+        please reach out at pstefek.dev@gmail.com
+      *)
       bind params ~f:(fun params ->
         let (prev_color, ray) = params in
         match check_collision_with_world ray world 0.001 10000.0  with
@@ -228,7 +236,7 @@ let screen_coords =
       in
       (x, y))
 
-let samples_per_pixel = 30
+let samples_per_pixel = 40
 
 let max_depth = 10
 
@@ -240,8 +248,6 @@ let fsamples_per_pixel = float_of_int samples_per_pixel
 let resulting_colors =
   Array.map screen_coords ~f:(fun screen_coord ->
       let x, y = screen_coord in
-      (*printf "%f %f\n" x y;
-      print_endline "";*)
       let pixel_samples =
         Array.map samples ~f:(fun _ ->
             let jitter_x = Random.float (1.0 /. float_of_int screen_width) in
